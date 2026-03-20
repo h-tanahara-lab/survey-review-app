@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nail Salon Luana - アンケート</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif;
+  background: linear-gradient(180deg, #FDF6F0 0%, #F5EDE6 50%, #EDE4DC 100%);
+  min-height: 100vh;
+  display: flex; justify-content: center;
+}
+#app { width: 100%; max-width: 430px; min-height: 100vh; position: relative; }
+
+/* Header */
+.header {
+  padding: 28px 20px 16px; text-align: center;
+  background: linear-gradient(135deg, rgba(212,132,124,0.08), rgba(232,168,124,0.06));
+}
+.header-sub { font-size: 12px; color: #B8A99A; letter-spacing: 3px; margin-bottom: 4px; }
+.header-name { font-size: 26px; font-weight: 700; color: #4A3F35; letter-spacing: 1px; }
+.header-msg { font-size: 13px; color: #A08E7F; margin-top: 8px; }
+
+/* Progress */
+.progress { display: flex; gap: 8px; justify-content: center; padding: 16px 0; }
+.dot { height: 8px; border-radius: 4px; background: #E8DDD5; transition: all 0.3s ease; }
+.dot.active { background: linear-gradient(135deg, #D4847C, #E8A87C); }
+.dot.current { width: 24px; }
+
+/* Card */
+.card {
+  background: #FFF; border-radius: 24px; padding: 28px 24px;
+  box-shadow: 0 4px 24px rgba(107,91,78,0.08);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.card.fade-out { opacity: 0; transform: translateY(12px); }
+.card.fade-in { opacity: 1; transform: translateY(0); }
+
+.q-title {
+  font-size: 17px; font-weight: 700; color: #4A3F35;
+  text-align: center; margin-bottom: 20px; line-height: 1.6;
+}
+.q-optional { font-size: 13px; font-weight: 400; color: #A08E7F; }
+
+/* Stars */
+.stars { display: flex; gap: 8px; justify-content: center; }
+.star {
+  background: none; border: none; cursor: pointer; padding: 4px;
+  font-size: 44px; line-height: 1; transition: transform 0.15s ease; color: #E0D5CC;
+}
+.star.active { color: #E8A87C; filter: drop-shadow(0 2px 4px rgba(232,168,124,0.4)); }
+.star:hover { transform: scale(1.2); }
+.star-msg { text-align: center; margin-top: 16px; font-size: 14px; color: #A08E7F; }
+
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.chip {
+  padding: 10px 18px; border-radius: 24px; border: 2px solid #E8DDD5;
+  background: #FFF; color: #6B5B4E; font-size: 14px; font-weight: 400;
+  cursor: pointer; transition: all 0.2s ease; font-family: inherit;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.chip.active {
+  border-color: #D4847C; background: linear-gradient(135deg, #D4847C, #E8A87C);
+  color: #FFF; font-weight: 600; box-shadow: 0 2px 8px rgba(212,132,124,0.3);
+}
+
+/* Textarea */
+.text-input {
+  width: 100%; border-radius: 16px; border: 2px solid #E8DDD5; padding: 16px;
+  font-size: 15px; font-family: inherit; resize: none; outline: none;
+  color: #4A3F35; transition: border-color 0.2s;
+}
+.text-input:focus { border-color: #D4847C; }
+.char-count { text-align: right; font-size: 12px; color: #B8A99A; margin-top: 4px; }
+
+/* Buttons */
+.btn-row { margin-top: 20px; display: flex; gap: 12px; }
+.btn-primary {
+  flex: 1; padding: 16px 0; border-radius: 16px; border: none;
+  background: linear-gradient(135deg, #D4847C, #E8A87C); color: #FFF;
+  font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+  box-shadow: 0 4px 16px rgba(212,132,124,0.35); transition: all 0.2s ease;
+}
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.btn-back {
+  flex: 0 0 auto; padding: 14px 24px; border-radius: 16px;
+  border: 2px solid #E8DDD5; background: #FFF; color: #D4847C;
+  font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.btn-google {
+  width: 100%; padding: 16px 0; border-radius: 16px; border: none;
+  background: linear-gradient(135deg, #4285F4, #34A853); color: #FFF;
+  font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+  box-shadow: 0 4px 16px rgba(66,133,244,0.35);
+}
+.btn-secondary {
+  width: 100%; padding: 16px 0; border-radius: 16px;
+  border: 2px solid #E8DDD5; background: #FFF; color: #D4847C;
+  font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.btn-copied {
+  background: linear-gradient(135deg, #7BC67E, #5BAF5E) !important;
+}
+
+/* Review screen */
+.review-textarea {
+  width: 100%; border-radius: 16px; border: 2px solid #E8DDD5; padding: 16px;
+  font-size: 15px; font-family: inherit; resize: none; outline: none;
+  color: #4A3F35; line-height: 1.7; background: #FFFBF7;
+}
+.review-textarea:focus { border-color: #D4847C; }
+.reset-btn {
+  position: absolute; top: -10px; right: -4px; background: #F5EDE6;
+  border: 1px solid #E8DDD5; border-radius: 12px; padding: 4px 10px;
+  font-size: 11px; color: #A08E7F; cursor: pointer; font-family: inherit;
+}
+
+/* Consent */
+.consent-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: #FFFBF7; border: 2px solid #E8DDD5; border-radius: 16px;
+  padding: 14px 16px; cursor: pointer; text-align: left; transition: all 0.2s ease;
+}
+.consent-btn.active { background: rgba(212,132,124,0.06); border-color: #D4847C; }
+.check-box {
+  width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0;
+  border: 2px solid #CCBFB3; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s ease;
+}
+.check-box.active {
+  border-color: #D4847C; background: linear-gradient(135deg, #D4847C, #E8A87C);
+}
+.consent-text { font-size: 14px; color: #4A3F35; line-height: 1.5; }
+.guide-text { font-size: 12px; color: #A08E7F; text-align: center; line-height: 1.6; }
+
+/* Loading */
+.loading-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; text-align: center; padding: 40px;
+}
+.loading-circle {
+  width: 64px; height: 64px; margin: 0 auto 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #D4847C, #E8A87C);
+  display: flex; align-items: center; justify-content: center;
+  animation: pulse 1.5s ease-in-out infinite; font-size: 28px;
+}
+@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } }
+.loading-title { font-size: 18px; font-weight: 700; color: #4A3F35; margin-bottom: 8px; }
+.loading-sub { font-size: 14px; color: #A08E7F; line-height: 1.6; }
+
+/* Done */
+.done-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; text-align: center; padding: 40px;
+}
+.done-circle {
+  width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #D4847C, #E8A87C);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 32px rgba(212,132,124,0.3); font-size: 40px;
+}
+.done-title { font-size: 22px; font-weight: 700; color: #4A3F35; margin-bottom: 12px; }
+.done-sub { font-size: 15px; color: #A08E7F; line-height: 1.7; }
+.done-card {
+  margin-top: 32px; padding: 16px 24px; background: #FFF;
+  border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.content { padding: 8px 20px 100px; }
+.actions { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Error bar */
+.error-bar {
+  background: rgba(212,132,124,0.1); border: 1px solid #D4847C;
+  border-radius: 12px; padding: 10px 16px; margin-bottom: 12px;
+  font-size: 13px; color: #D4847C; text-align: center;
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ===== 設定 =====
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwgDfxZ-hR1w337kdenpoLUbLjiqBr0WvzOHX9DEaQ2hxK0Pz0SElrVHUQpNOE_HQq5/exec";
+const SHOP_NAME = "Nail Salon Luana";
+const SHOP_TYPE = "ネイルサロン";
+const GOOGLE_PLACE_ID = "DEMO_PLACE_ID"; // 実際のPlace IDに置き換える
+
+const MENUS = ["ジェルネイル", "スカルプ", "ケア・甘皮処理", "フットネイル", "ネイルオフ", "アート・パーツ"];
+
+const GOOD_POINTS = [
+  "デザインが可愛い・おしゃれ", "仕上がりが丁寧", "持ちが良さそう",
+  "カウンセリングが的確", "スタッフの対応が丁寧", "店内が清潔で居心地が良い", "リラックスできた"
+];
+
+const IMPROVE_POINTS = [
+  "仕上がりがイメージと違った", "待ち時間が長かった", "説明が不十分だった",
+  "店内の清潔さが気になった", "料金が高く感じた", "予約が取りにくい", "スタッフの対応が気になった"
+];
+
+const STAFF = ["Miki", "Rina", "Yui", "Haruka"];
+
+// ===== 状態管理 =====
+const state = {
+  screen: "survey", // survey | loading | review | done
+  step: 0,
+  rating: 0,
+  menus: [],
+  goodPoints: [],
+  staffName: "",
+  freeText: "",
+  generatedReview: "",
+  editedReview: "",
+  consent: false,
+  copied: false,
+  error: "",
+};
+
+// ===== API呼び出し =====
+async function callClaudeAPI(data) {
+  const payload = {
+    shopName: SHOP_NAME,
+    shopType: SHOP_TYPE,
+    rating: data.rating,
+    menus: data.menus,
+    goodPoints: data.goodPoints,
+    staffName: data.staffName,
+    freeText: data.freeText,
+    isPositive: data.rating >= 4,
+  };
+
+  // GASはContent-Type: application/jsonだとCORSエラーになるため、text/plainで送信
+  const res = await fetch(GAS_URL, {
+    method: "POST",
+    redirect: "follow",
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text();
+  let result;
+  try { result = JSON.parse(text); } catch { throw new Error("レスポンスの解析に失敗: " + text.slice(0, 100)); }
+  if (!result.success) throw new Error(result.error || "API呼び出しに失敗しました");
+  return result.review;
+}
+
+// フォールバック用ローカル生成
+function generateReviewLocal(data) {
+  const menuStr = data.menus.join("と");
+  const parts = [];
+  if (data.goodPoints.includes("デザインが可愛い・おしゃれ")) parts.push("デザインがとても可愛くて気に入りました");
+  if (data.goodPoints.includes("仕上がりが丁寧")) parts.push("仕上がりがとても丁寧で感動しました");
+  if (data.goodPoints.includes("持ちが良さそう")) parts.push("持ちも良さそうで期待しています");
+  if (data.goodPoints.includes("カウンセリングが的確")) parts.push("事前のカウンセリングで好みをしっかり聞いてくれました");
+  if (data.goodPoints.includes("スタッフの対応が丁寧")) parts.push("スタッフの方の対応がとても丁寧で安心できました");
+  if (data.goodPoints.includes("店内が清潔で居心地が良い")) parts.push("店内は清潔感があり、居心地の良い空間でした");
+  if (data.goodPoints.includes("リラックスできた")) parts.push("施術中もリラックスして過ごすことができました");
+  let review = `${menuStr}でお伺いしました。`;
+  if (data.staffName && data.staffName !== "覚えていない") {
+    review += `担当の${data.staffName}さんが`;
+    if (parts.length > 0) review += `${parts[0]}。`;
+    if (parts.length > 1) review += parts.slice(1).join("。また、") + "。";
+  } else {
+    if (parts.length > 0) review += parts.join("。また、") + "。";
+  }
+  if (data.freeText) review += data.freeText;
+  if (data.rating === 5) review += "また必ずリピートします！";
+  else if (data.rating === 4) review += "また利用したいと思います。";
+  return review;
+}
+
+// ===== レンダリング =====
+function render() {
+  const app = document.getElementById("app");
+
+  if (state.screen === "loading") {
+    app.innerHTML = `
+      <div class="loading-screen">
+        <div>
+          <div class="loading-circle">✨</div>
+          <p class="loading-title">口コミ文を作成中<span id="loading-dots"></span></p>
+          <p class="loading-sub">AIがあなたの感想をもとに<br>口コミ文を作成しています</p>
+        </div>
+      </div>`;
+    animateDots();
+    return;
+  }
+
+  if (state.screen === "done") {
+    app.innerHTML = `
+      <div class="done-screen">
+        <div>
+          <div class="done-circle">💅</div>
+          <p class="done-title">ありがとうございました！</p>
+          <p class="done-sub">お客様のご意見は<br>サービス向上に活かしてまいります</p>
+          <div class="done-card">
+            <p style="font-size:14px;color:#6B5B4E;font-weight:500">${SHOP_NAME}</p>
+            <p style="font-size:12px;color:#B8A99A;margin-top:4px">またのご来店をお待ちしております</p>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (state.screen === "review") {
+    renderReviewScreen(app);
+    return;
+  }
+
+  // Survey screen
+  renderSurveyScreen(app);
+}
+
+function renderSurveyScreen(app) {
+  const s = state;
+  let stepHTML = "";
+
+  if (s.step === 0) {
+    const msgs = { 5: "最高！ありがとうございます ✨", 4: "ありがとうございます！", 3: "ご回答ありがとうございます", 2: "貴重なご意見ありがとうございます", 1: "貴重なご意見ありがとうございます" };
+    stepHTML = `
+      <p class="q-title">本日の施術の満足度を<br>教えてください</p>
+      <div class="stars">
+        ${[1,2,3,4,5].map(i => `<button class="star ${s.rating >= i ? 'active' : ''}" onclick="setRating(${i})">★</button>`).join("")}
+      </div>
+      ${s.rating > 0 ? `<p class="star-msg">${msgs[s.rating]}</p>` : ""}`;
+  }
+
+  if (s.step === 1) {
+    stepHTML = `
+      <p class="q-title">本日の施術メニューを<br>選んでください（複数可）</p>
+      <div class="chips">
+        ${MENUS.map(m => `<button class="chip ${s.menus.includes(m) ? 'active' : ''}" onclick="toggleMenu('${m}')">${m}</button>`).join("")}
+      </div>`;
+  }
+
+  if (s.step === 2) {
+    const isPositive = s.rating >= 4;
+    const title = isPositive ? "特に良かった点を<br>教えてください（複数可）" : "改善してほしい点を<br>教えてください（複数可）";
+    const options = isPositive ? GOOD_POINTS : IMPROVE_POINTS;
+    stepHTML = `
+      <p class="q-title">${title}</p>
+      <div class="chips">
+        ${options.map(p => `<button class="chip ${s.goodPoints.includes(p) ? 'active' : ''}" onclick="toggleGoodPoint('${p.replace(/'/g, "\\'")}')">${p}</button>`).join("")}
+      </div>`;
+  }
+
+  if (s.step === 3) {
+    const allStaff = [...STAFF, "覚えていない"];
+    stepHTML = `
+      <p class="q-title">担当スタッフの名前<br><span class="q-optional">（任意）</span></p>
+      <div class="chips">
+        ${allStaff.map(name => `<button class="chip ${s.staffName === name ? 'active' : ''}" onclick="setStaff('${name}')">${name}</button>`).join("")}
+      </div>`;
+  }
+
+  if (s.step === 4) {
+    stepHTML = `
+      <p class="q-title">ご意見・ご感想があれば<br>お聞かせください<br><span class="q-optional">（任意・最大200文字）</span></p>
+      <textarea class="text-input" rows="4" maxlength="200"
+        placeholder="良かった点や改善してほしい点など、なんでもお気軽にどうぞ！"
+        oninput="setFreeText(this.value)">${s.freeText}</textarea>
+      <div class="char-count">${s.freeText.length}/200</div>`;
+  }
+
+  // Progress dots
+  const dots = [0,1,2,3,4].map(i =>
+    `<div class="dot ${i <= s.step ? 'active' : ''} ${i === s.step ? 'current' : ''}" style="width:${i === s.step ? '24px' : '8px'}"></div>`
+  ).join("");
+
+  // Can proceed?
+  const canNext = (s.step === 0 && s.rating > 0) || (s.step === 1 && s.menus.length > 0) || (s.step === 2 && s.goodPoints.length > 0) || s.step === 3 || s.step === 4;
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="header-sub">NAIL SALON</div>
+      <div class="header-name">${SHOP_NAME}</div>
+      <div class="header-msg">本日のご来店ありがとうございます</div>
+    </div>
+    <div class="progress">${dots}</div>
+    <div class="content">
+      ${s.error ? `<div class="error-bar">${s.error}</div>` : ""}
+      <div class="card fade-in" id="card">${stepHTML}</div>
+      <div class="btn-row">
+        ${s.step > 0 ? `<button class="btn-back" onclick="goBack()">戻る</button>` : ""}
+        <button class="btn-primary" ${canNext ? "" : "disabled"} onclick="goNext()">
+          ${s.step === 4 ? "送信する" : "次へ"}
+        </button>
+      </div>
+    </div>`;
+}
+
+function renderReviewScreen(app) {
+  const s = state;
+  let actionsHTML = "";
+
+  if (s.consent) {
+    actionsHTML = `
+      <button class="btn-primary ${s.copied ? 'btn-copied' : ''}" onclick="copyReview()">
+        ${s.copied ? "✓ コピーしました！" : "口コミ文をコピーする"}
+      </button>
+      <button class="btn-google" onclick="openGoogle()">
+        Googleで口コミを投稿する →
+      </button>
+      <p class="guide-text">↑ Googleの口コミページが開きます<br>コピーした文章を貼り付けて投稿してください</p>`;
+  } else {
+    actionsHTML = `<button class="btn-secondary" onclick="finishWithoutConsent()">投稿せずに終了する</button>`;
+  }
+
+  app.innerHTML = `
+    <div class="header" style="padding:28px 20px 16px;text-align:center">
+      <div class="header-name">${SHOP_NAME}</div>
+    </div>
+    <div class="content">
+      <div class="card fade-in">
+        <div style="text-align:center;margin-bottom:20px">
+          <span style="font-size:36px">📝</span>
+          <p style="font-size:17px;font-weight:700;color:#4A3F35;margin-top:8px">口コミ文が完成しました！</p>
+          <p style="font-size:13px;color:#A08E7F;margin-top:4px">内容を確認・編集できます</p>
+        </div>
+        <div style="position:relative">
+          <textarea class="review-textarea" rows="6" oninput="editReview(this.value)">${s.editedReview}</textarea>
+          ${s.editedReview !== s.generatedReview ? `<button class="reset-btn" onclick="resetReview()">元に戻す</button>` : ""}
+        </div>
+        <div style="margin-top:20px">
+          <button class="consent-btn ${s.consent ? 'active' : ''}" onclick="toggleConsent()">
+            <div class="check-box ${s.consent ? 'active' : ''}">
+              ${s.consent ? '<span style="color:#FFF;font-size:14px;font-weight:700">✓</span>' : ""}
+            </div>
+            <span class="consent-text">この内容をGoogleの口コミに<br>投稿してもいいですか？</span>
+          </button>
+        </div>
+      </div>
+      <div class="actions">${actionsHTML}</div>
+    </div>`;
+}
+
+// ===== イベントハンドラ =====
+function setRating(val) {
+  const wasPositive = state.rating >= 4;
+  const nowPositive = val >= 4;
+  state.rating = val;
+  if (wasPositive !== nowPositive) state.goodPoints = [];
+  render();
+}
+
+function toggleMenu(m) {
+  const i = state.menus.indexOf(m);
+  if (i >= 0) state.menus.splice(i, 1);
+  else state.menus.push(m);
+  render();
+}
+
+function toggleGoodPoint(p) {
+  const i = state.goodPoints.indexOf(p);
+  if (i >= 0) state.goodPoints.splice(i, 1);
+  else state.goodPoints.push(p);
+  render();
+}
+
+function setStaff(name) {
+  state.staffName = state.staffName === name ? "" : name;
+  render();
+}
+
+function setFreeText(val) {
+  state.freeText = val.slice(0, 200);
+  // Update char count without full re-render
+  const cc = document.querySelector(".char-count");
+  if (cc) cc.textContent = `${state.freeText.length}/200`;
+}
+
+function goBack() {
+  const card = document.getElementById("card");
+  if (card) card.classList.replace("fade-in", "fade-out");
+  setTimeout(() => { state.step--; render(); }, 200);
+}
+
+function goNext() {
+  if (state.step < 4) {
+    const card = document.getElementById("card");
+    if (card) card.classList.replace("fade-in", "fade-out");
+    setTimeout(() => { state.step++; render(); }, 200);
+  } else {
+    handleSubmit();
+  }
+}
+
+async function handleSubmit() {
+  state.error = "";
+
+  if (state.rating <= 3) {
+    state.screen = "done";
+    render();
+    return;
+  }
+
+  state.screen = "loading";
+  render();
+
+  const data = {
+    rating: state.rating,
+    menus: state.menus,
+    goodPoints: state.goodPoints,
+    staffName: state.staffName,
+    freeText: state.freeText,
+  };
+
+  try {
+    const review = await callClaudeAPI(data);
+    state.generatedReview = review;
+    state.editedReview = review;
+    state.screen = "review";
+  } catch (err) {
+    console.error("API Error:", err);
+    // フォールバック
+    const review = generateReviewLocal(data);
+    state.generatedReview = review;
+    state.editedReview = review;
+    state.screen = "review";
+    state.error = "※ デモモードで生成しました（API接続確認中）";
+  }
+  render();
+}
+
+function editReview(val) { state.editedReview = val; }
+function resetReview() { state.editedReview = state.generatedReview; render(); }
+function toggleConsent() { state.consent = !state.consent; render(); }
+function finishWithoutConsent() { state.screen = "done"; render(); }
+
+async function copyReview() {
+  try {
+    await navigator.clipboard.writeText(state.editedReview);
+    state.copied = true;
+    render();
+    setTimeout(() => { state.copied = false; render(); }, 2000);
+  } catch {
+    // Fallback: テキストエリアから選択コピー
+    const ta = document.createElement("textarea");
+    ta.value = state.editedReview;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    state.copied = true;
+    render();
+    setTimeout(() => { state.copied = false; render(); }, 2000);
+  }
+}
+
+function openGoogle() {
+  window.open(`https://search.google.com/local/writereview?placeid=${GOOGLE_PLACE_ID}`, "_blank");
+}
+
+// Loading dots animation
+function animateDots() {
+  let count = 0;
+  const iv = setInterval(() => {
+    const el = document.getElementById("loading-dots");
+    if (!el || state.screen !== "loading") { clearInterval(iv); return; }
+    count = (count + 1) % 4;
+    el.textContent = ".".repeat(count);
+  }, 400);
+}
+
+// ===== 初期描画 =====
+render();
+</script>
+</body>
+</html>
