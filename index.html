@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Nail Salon Luana - アンケート</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -190,6 +191,46 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbwgDfxZ-hR1w337kdenpoLU
 const SHOP_NAME = "Nail Salon Luana";
 const SHOP_TYPE = "ネイルサロン";
 const GOOGLE_PLACE_ID = "DEMO_PLACE_ID"; // 実際のPlace IDに置き換える
+
+// ===== Supabase設定 =====
+const SUPABASE_URL = "https://krjgthuwecuwlcfsgjmd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtyamd0aHV3ZWN1d2xjZnNnam1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDg4ODEsImV4cCI6MjA4OTcyNDg4MX0.aQLzcIzdcRUSNi2vcJttHcSm1AQ6eB03tkFdl7_1zTQ";
+const SHOP_ID = "caa79b24-4018-43a6-832c-a52a6925a93b"; // Nail Salon Luana
+
+let sbClient = null;
+try {
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+  console.warn("Supabase初期化失敗:", e);
+}
+
+// Supabaseにアンケート回答を保存
+async function saveToSupabase(reviewData) {
+  if (!sbClient || !SHOP_ID) {
+    console.log("Supabase保存スキップ（SHOP_ID未設定）");
+    return;
+  }
+  try {
+    const isPositive = reviewData.rating >= 4;
+    const record = {
+      shop_id: SHOP_ID,
+      rating: reviewData.rating,
+      menu_selections: reviewData.menus,
+      good_points: isPositive ? reviewData.goodPoints : [],
+      improve_points: isPositive ? [] : reviewData.goodPoints,
+      free_text: reviewData.freeText || null,
+      generated_review: reviewData.generatedReview || null,
+      edited_review: reviewData.editedReview || null,
+      consent_given: reviewData.consent || false,
+      is_positive: isPositive,
+    };
+    const { error } = await sbClient.from("responses").insert([record]);
+    if (error) console.error("Supabase保存エラー:", error);
+    else console.log("Supabase保存成功");
+  } catch (e) {
+    console.error("Supabase保存例外:", e);
+  }
+}
 
 const MENUS = ["ジェルネイル", "スカルプ", "ケア・甘皮処理", "フットネイル", "ネイルオフ", "アート・パーツ"];
 
@@ -495,6 +536,12 @@ async function handleSubmit() {
   if (state.rating <= 3) {
     state.screen = "done";
     render();
+    // 低評価でもデータは保存（オーナーの改善材料）
+    saveToSupabase({
+      rating: state.rating, menus: state.menus, goodPoints: state.goodPoints,
+      staffName: state.staffName, freeText: state.freeText,
+      generatedReview: null, editedReview: null, consent: false,
+    });
     return;
   }
 
@@ -529,7 +576,16 @@ async function handleSubmit() {
 function editReview(val) { state.editedReview = val; }
 function resetReview() { state.editedReview = state.generatedReview; render(); }
 function toggleConsent() { state.consent = !state.consent; render(); }
-function finishWithoutConsent() { state.screen = "done"; render(); }
+function finishWithoutConsent() {
+  // 同意なしでもデータ保存
+  saveToSupabase({
+    rating: state.rating, menus: state.menus, goodPoints: state.goodPoints,
+    staffName: state.staffName, freeText: state.freeText,
+    generatedReview: state.generatedReview, editedReview: state.editedReview, consent: false,
+  });
+  state.screen = "done";
+  render();
+}
 
 async function copyReview() {
   try {
@@ -552,6 +608,12 @@ async function copyReview() {
 }
 
 function openGoogle() {
+  // 同意ありでデータ保存
+  saveToSupabase({
+    rating: state.rating, menus: state.menus, goodPoints: state.goodPoints,
+    staffName: state.staffName, freeText: state.freeText,
+    generatedReview: state.generatedReview, editedReview: state.editedReview, consent: true,
+  });
   window.open(`https://search.google.com/local/writereview?placeid=${GOOGLE_PLACE_ID}`, "_blank");
 }
 
