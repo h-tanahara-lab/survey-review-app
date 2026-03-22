@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>オーナー管理画面</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif;
+  background: linear-gradient(180deg, #F7F3EF 0%, #F0ECE6 100%);
+  min-height: 100vh;
+}
+
+/* Login */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-card { background: #FFF; border-radius: 24px; padding: 40px 32px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); width: 100%; max-width: 400px; }
+.login-logo { text-align: center; margin-bottom: 24px; }
+.login-logo span { font-size: 40px; }
+.login-title { text-align: center; font-size: 20px; font-weight: 700; color: #3A332D; margin-bottom: 8px; }
+.login-sub { text-align: center; font-size: 13px; color: #B0A69C; margin-bottom: 24px; }
+.input-group { margin-bottom: 16px; }
+.input-group label { display: block; font-size: 13px; font-weight: 600; color: #6B5B4E; margin-bottom: 6px; }
+.input-group input { width: 100%; padding: 12px 16px; border: 2px solid #E8DDD5; border-radius: 12px; font-size: 15px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+.input-group input:focus { border-color: #D4847C; }
+.btn-login { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #D4847C, #E8A87C); color: #FFF; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 8px; }
+.btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+.login-error { background: rgba(212,132,124,0.1); border: 1px solid #D4847C; border-radius: 8px; padding: 10px; font-size: 13px; color: #D4847C; text-align: center; margin-top: 12px; }
+
+/* Header */
+.header { background: #FFF; border-bottom: 1px solid #E8E2DC; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #D4847C, #E8A87C); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-name { font-size: 15px; font-weight: 700; color: #3A332D; }
+.header-sub { font-size: 11px; color: #B0A69C; }
+.btn-logout { background: none; border: 1px solid #E8DDD5; border-radius: 8px; padding: 6px 14px; font-size: 12px; color: #8C8279; cursor: pointer; font-family: inherit; }
+
+/* Layout */
+.layout { display: flex; min-height: calc(100vh - 69px); }
+nav { width: 220px; background: #FFF; border-right: 1px solid #E8E2DC; padding: 20px 0; flex-shrink: 0; }
+.nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 20px; border: none; cursor: pointer; background: transparent; border-left: 3px solid transparent; color: #8C8279; font-weight: 400; font-size: 14px; font-family: inherit; transition: all 0.15s; }
+.nav-btn.active { background: linear-gradient(90deg, rgba(212,132,124,0.08), transparent); border-left-color: #D4847C; color: #D4847C; font-weight: 700; }
+main { flex: 1; padding: 24px 32px; max-width: 960px; overflow: auto; }
+
+/* Cards */
+.card { background: #FFF; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); margin-bottom: 16px; }
+.stat-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.stat-card { background: #FFF; border-radius: 16px; padding: 20px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); flex: 1 1 0; min-width: 140px; }
+.stat-icon { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.stat-icon span:first-child { font-size: 20px; }
+.stat-label { font-size: 12px; color: #8C8279; font-weight: 500; }
+.stat-value { font-size: 28px; font-weight: 800; color: #3A332D; letter-spacing: -0.5px; }
+.stat-value.accent { color: #E8A87C; }
+.stat-value.green { color: #7BC67E; }
+.stat-sub { font-size: 12px; color: #B0A69C; margin-top: 2px; }
+
+.section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.section-title span { font-size: 18px; }
+.section-title h3 { font-size: 16px; font-weight: 700; color: #3A332D; }
+
+.page-title { font-size: 22px; font-weight: 800; color: #3A332D; margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: #B0A69C; margin-bottom: 24px; }
+
+/* Table */
+.tbl-header { display: flex; align-items: center; gap: 16px; padding: 10px 0 14px; border-bottom: 2px solid #F0ECE6; font-size: 12px; font-weight: 700; color: #8C8279; }
+.tbl-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #F5F0EB; cursor: pointer; transition: background 0.1s; }
+.tbl-row:hover { background: #FDFBF9; }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+.badge-yes { background: rgba(123,198,126,0.12); color: #5BAF5E; }
+.badge-no { background: rgba(212,132,124,0.08); color: #B0A69C; }
+
+/* Filter */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid #E8E2DC; background: #FFF; color: #8C8279; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.filter-btn.active { border-color: #D4847C; background: linear-gradient(135deg, #D4847C, #E8A87C); color: #FFF; }
+
+/* Detail */
+.detail-section { margin-bottom: 16px; }
+.detail-label { font-size: 12px; color: #8C8279; font-weight: 600; margin-bottom: 4px; }
+.detail-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.detail-chip { padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+.detail-chip.good { background: rgba(123,198,126,0.1); color: #5BAF5E; }
+.detail-chip.improve { background: rgba(212,132,124,0.08); color: #D4847C; }
+.detail-chip.neutral { background: #F5F0EB; color: #6B5B4E; }
+.review-box { padding: 16px; background: #FFFBF7; border-radius: 12px; border: 1px solid #F0E8DF; }
+.review-label { font-size: 12px; color: #D4847C; font-weight: 700; margin-bottom: 8px; }
+.review-text { font-size: 14px; color: #3A332D; line-height: 1.7; }
+
+.back-btn { background: none; border: none; color: #D4847C; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; margin-bottom: 16px; padding: 0; }
+
+/* Ranking */
+.rank-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #F5F0EB; }
+.rank-num { width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rank-top { background: linear-gradient(135deg, #D4847C, #E8A87C); color: #FFF; }
+.rank-other { background: #F0ECE6; color: #8C8279; }
+.rank-bar { height: 6px; border-radius: 3px; }
+
+/* Loading */
+.loading { text-align: center; padding: 60px 20px; color: #B0A69C; font-size: 15px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  nav { display: none; }
+  main { padding: 16px; }
+  .stat-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ===== Supabase設定 =====
+const SUPABASE_URL = "https://krjgthuwecuwlcfsgjmd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtyamd0aHV3ZWN1d2xjZnNnam1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDg4ODEsImV4cCI6MjA4OTcyNDg4MX0.aQLzcIzdcRUSNi2vcJttHcSm1AQ6eB03tkFdl7_1zTQ";
+
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ===== 状態 =====
+const state = {
+  screen: "login", // login | dashboard
+  user: null,
+  shop: null,
+  responses: [],
+  activeNav: "dashboard",
+  selectedResponse: null,
+  filterRating: "all",
+  loading: false,
+  loginError: "",
+  email: "",
+  password: "",
+};
+
+// ===== データ取得 =====
+async function fetchShopData() {
+  // 今はRLSを使わずshop_idで直接取得（認証実装後にRLSベースに移行）
+  const { data: shops } = await sbClient.from("shops").select("*").eq("owner_email", state.email).eq("status", "use");
+  if (!shops || shops.length === 0) return null;
+  state.shop = shops[0];
+
+  const { data: responses } = await sbClient.from("responses").select("*").eq("shop_id", state.shop.id).order("created_at", { ascending: false });
+  state.responses = responses || [];
+  return state.shop;
+}
+
+// ===== 統計計算 =====
+function calcStats() {
+  const r = state.responses;
+  const now = new Date();
+  const thisMonth = r.filter(x => new Date(x.created_at).getMonth() === now.getMonth() && new Date(x.created_at).getFullYear() === now.getFullYear());
+  const total = thisMonth.length;
+  const consents = thisMonth.filter(x => x.consent_given).length;
+  const avgRating = total > 0 ? (thisMonth.reduce((s, x) => s + x.rating, 0) / total).toFixed(1) : "0";
+  const rate = total > 0 ? ((consents / total) * 100).toFixed(1) : "0";
+  return { total, consents, avgRating, rate };
+}
+
+function calcGoodPointsRanking() {
+  const counts = {};
+  state.responses.filter(r => r.is_positive).forEach(r => {
+    (r.good_points || []).forEach(p => { counts[p] = (counts[p] || 0) + 1; });
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }));
+}
+
+function calcImprovePointsRanking() {
+  const counts = {};
+  state.responses.filter(r => !r.is_positive).forEach(r => {
+    (r.improve_points || []).forEach(p => { counts[p] = (counts[p] || 0) + 1; });
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }));
+}
+
+// ===== ログイン（簡易版: メアドでshop検索） =====
+async function handleLogin() {
+  state.loginError = "";
+  state.loading = true;
+  render();
+
+  try {
+    const shop = await fetchShopData();
+    if (!shop) {
+      state.loginError = "このメールアドレスに紐づく店舗が見つかりません";
+      state.loading = false;
+      render();
+      return;
+    }
+    state.screen = "dashboard";
+    state.loading = false;
+    render();
+  } catch (e) {
+    state.loginError = "ログインに失敗しました: " + e.message;
+    state.loading = false;
+    render();
+  }
+}
+
+function handleLogout() {
+  state.screen = "login";
+  state.user = null;
+  state.shop = null;
+  state.responses = [];
+  state.email = "";
+  state.password = "";
+  state.activeNav = "dashboard";
+  state.selectedResponse = null;
+  render();
+}
+
+// ===== 日付フォーマット =====
+function fmtDate(d) {
+  const dt = new Date(d);
+  return `${dt.getMonth() + 1}/${dt.getDate()}`;
+}
+function fmtDateTime(d) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}/${dt.getMonth() + 1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2, "0")}`;
+}
+function stars(n) { return "★".repeat(n) + "☆".repeat(5 - n); }
+
+// ===== レンダリング =====
+function render() {
+  const app = document.getElementById("app");
+  if (state.screen === "login") { renderLogin(app); return; }
+  renderDashboard(app);
+}
+
+function renderLogin(app) {
+  app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-logo"><span>💅</span></div>
+        <div class="login-title">オーナー管理画面</div>
+        <div class="login-sub">登録メールアドレスでログイン</div>
+        <div class="input-group">
+          <label>メールアドレス</label>
+          <input type="email" id="login-email" value="${state.email}" placeholder="owner@example.com" onkeydown="if(event.key==='Enter')document.getElementById('login-btn').click()">
+        </div>
+        <div class="input-group">
+          <label>パスワード</label>
+          <input type="password" id="login-pw" value="${state.password}" placeholder="パスワード" onkeydown="if(event.key==='Enter')document.getElementById('login-btn').click()">
+        </div>
+        <button class="btn-login" id="login-btn" onclick="doLogin()" ${state.loading ? "disabled" : ""}>
+          ${state.loading ? "ログイン中..." : "ログイン"}
+        </button>
+        ${state.loginError ? `<div class="login-error">${state.loginError}</div>` : ""}
+      </div>
+    </div>`;
+}
+
+function renderDashboard(app) {
+  const navItems = [
+    { id: "dashboard", label: "ダッシュボード", icon: "📊" },
+    { id: "responses", label: "回答一覧", icon: "📋" },
+  ];
+
+  const navHTML = navItems.map(n => `
+    <button class="nav-btn ${state.activeNav === n.id ? 'active' : ''}" onclick="setNav('${n.id}')">
+      <span>${n.icon}</span>${n.label}
+    </button>`).join("");
+
+  let mainHTML = "";
+  if (state.activeNav === "dashboard") mainHTML = renderDashboardContent();
+  else if (state.activeNav === "responses" && !state.selectedResponse) mainHTML = renderResponsesList();
+  else if (state.activeNav === "responses" && state.selectedResponse) mainHTML = renderResponseDetail();
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="header-left">
+        <div class="header-icon">💅</div>
+        <div>
+          <div class="header-name">${state.shop ? state.shop.name : ""}</div>
+          <div class="header-sub">管理画面</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="handleLogout()">ログアウト</button>
+    </div>
+    <div class="layout">
+      <nav>${navHTML}</nav>
+      <main>${mainHTML}</main>
+    </div>`;
+}
+
+function renderDashboardContent() {
+  const stats = calcStats();
+  const goodRanking = calcGoodPointsRanking();
+  const improveRanking = calcImprovePointsRanking();
+  const recent = state.responses.slice(0, 5);
+
+  const maxGood = goodRanking.length > 0 ? goodRanking[0].count : 1;
+
+  return `
+    <h2 class="page-title">ダッシュボード</h2>
+    <p class="page-sub">${state.shop ? state.shop.name : ""} のサマリー（今月）</p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-icon"><span>📝</span><span class="stat-label">回答数</span></div>
+        <div class="stat-value">${stats.total}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><span>⭐</span><span class="stat-label">平均満足度</span></div>
+        <div class="stat-value accent">${stats.avgRating}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><span>✅</span><span class="stat-label">口コミ同意数</span></div>
+        <div class="stat-value">${stats.consents}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><span>📈</span><span class="stat-label">同意率</span></div>
+        <div class="stat-value green">${stats.rate}%</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><span>👍</span><h3>良かった点ランキング</h3></div>
+      ${goodRanking.length === 0 ? '<p style="color:#B0A69C;font-size:14px">まだデータがありません</p>' :
+        goodRanking.map((item, i) => `
+          <div class="rank-row">
+            <span class="rank-num ${i < 3 ? 'rank-top' : 'rank-other'}">${i + 1}</span>
+            <span style="flex:1;font-size:13px;color:#3A332D">${item.label}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="rank-bar" style="width:${Math.round((item.count / maxGood) * 80)}px;background:${i < 3 ? 'linear-gradient(90deg,#D4847C,#E8A87C)' : '#E8E2DC'}"></div>
+              <span style="font-size:12px;color:#8C8279;font-weight:600;min-width:24px;text-align:right">${item.count}</span>
+            </div>
+          </div>`).join("")}
+      ${improveRanking.length > 0 ? `
+        <div style="margin-top:20px;padding-top:16px;border-top:2px solid #F5F0EB">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="font-size:14px">💡</span>
+            <span style="font-size:14px;font-weight:700;color:#3A332D">改善してほしい点</span>
+          </div>
+          ${improveRanking.map(item => `
+            <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+              <span style="flex:1;font-size:13px;color:#6B5B4E">${item.label}</span>
+              <span style="font-size:12px;color:#D4847C;font-weight:600">${item.count}</span>
+            </div>`).join("")}
+        </div>` : ""}
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0"><span>🕐</span><h3>直近の回答</h3></div>
+        <button onclick="setNav('responses')" style="background:none;border:1px solid #E8E2DC;border-radius:8px;padding:6px 14px;font-size:12px;color:#D4847C;cursor:pointer;font-weight:600;font-family:inherit">すべて見る →</button>
+      </div>
+      ${recent.length === 0 ? '<p style="color:#B0A69C;font-size:14px">まだ回答がありません</p>' :
+        recent.map((r, i) => `
+          <div class="tbl-row" onclick="viewResponse('${r.id}')" style="border-bottom:${i < recent.length - 1 ? '1px solid #F5F0EB' : 'none'}">
+            <div style="width:50px;font-size:12px;color:#B0A69C">${fmtDate(r.created_at)}</div>
+            <div style="width:90px;font-size:14px">${stars(r.rating)}</div>
+            <div style="flex:1;font-size:13px;color:#3A332D">${(r.menu_selections || []).join(", ")}</div>
+            <span class="badge ${r.consent_given ? 'badge-yes' : 'badge-no'}">${r.consent_given ? "同意済" : "未同意"}</span>
+          </div>`).join("")}
+    </div>`;
+}
+
+function renderResponsesList() {
+  const filtered = state.filterRating === "all" ? state.responses : state.responses.filter(r => r.rating === parseInt(state.filterRating));
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 class="page-title">回答一覧</h2>
+        <p style="font-size:13px;color:#B0A69C;margin:0">全${state.responses.length}件</p>
+      </div>
+      <div class="filters">
+        ${["all", "5", "4", "3", "2", "1"].map(f => `
+          <button class="filter-btn ${state.filterRating === f ? 'active' : ''}" onclick="setFilter('${f}')">
+            ${f === "all" ? "すべて" : "★" + f}
+          </button>`).join("")}
+      </div>
+    </div>
+    <div class="card">
+      <div class="tbl-header">
+        <div style="width:70px">日時</div>
+        <div style="width:90px">評価</div>
+        <div style="flex:1">メニュー</div>
+        <div style="width:60px;text-align:center">同意</div>
+        <div style="width:50px"></div>
+      </div>
+      ${filtered.length === 0 ? '<p style="padding:20px 0;color:#B0A69C;font-size:14px;text-align:center">該当する回答がありません</p>' :
+        filtered.map((r, i) => `
+          <div class="tbl-row" onclick="viewResponse('${r.id}')">
+            <div style="width:70px;font-size:12px;color:#8C8279">${fmtDate(r.created_at)}</div>
+            <div style="width:90px;font-size:14px">${stars(r.rating)}</div>
+            <div style="flex:1;font-size:13px;color:#3A332D">${(r.menu_selections || []).join(", ")}</div>
+            <div style="width:60px;text-align:center">
+              <span class="badge ${r.consent_given ? 'badge-yes' : 'badge-no'}">${r.consent_given ? "同意済" : "未同意"}</span>
+            </div>
+            <div style="width:50px;font-size:12px;color:#D4847C;font-weight:600">詳細 →</div>
+          </div>`).join("")}
+    </div>`;
+}
+
+function renderResponseDetail() {
+  const r = state.selectedResponse;
+  const isPositive = r.rating >= 4;
+  const points = isPositive ? (r.good_points || []) : (r.improve_points || []);
+  const chipClass = isPositive ? "good" : "improve";
+
+  return `
+    <button class="back-btn" onclick="closeDetail()">← 回答一覧に戻る</button>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h3 style="font-size:18px;font-weight:700;color:#3A332D">回答詳細</h3>
+        <span style="font-size:13px;color:#B0A69C">${fmtDateTime(r.created_at)}</span>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Q1. 満足度</div>
+        <div style="font-size:22px">${stars(r.rating)}</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Q2. 施術メニュー</div>
+        <div class="detail-chips">
+          ${(r.menu_selections || []).map(m => `<span class="detail-chip neutral">${m}</span>`).join("")}
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-label">Q3. ${isPositive ? "良かった点" : "改善してほしい点"}</div>
+        <div class="detail-chips">
+          ${points.map(p => `<span class="detail-chip ${chipClass}">${p}</span>`).join("")}
+        </div>
+      </div>
+
+      ${r.free_text ? `
+        <div class="detail-section">
+          <div class="detail-label">Q5. ご意見・ご感想</div>
+          <div style="font-size:14px;color:#3A332D;line-height:1.7">${r.free_text}</div>
+        </div>` : ""}
+
+      ${r.generated_review ? `
+        <div class="review-box" style="margin-top:12px">
+          <div class="review-label">🤖 AI生成の口コミ文</div>
+          <div class="review-text">${r.generated_review}</div>
+        </div>` : ""}
+
+      ${r.edited_review && r.edited_review !== r.generated_review ? `
+        <div class="review-box" style="margin-top:12px">
+          <div class="review-label" style="color:#E8A87C">✏️ お客さんが編集した口コミ文</div>
+          <div class="review-text">${r.edited_review}</div>
+        </div>` : ""}
+
+      <div style="margin-top:16px;display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:12px;background:${r.consent_given ? 'rgba(123,198,126,0.08)' : 'rgba(212,132,124,0.06)'}">
+        <span style="font-size:16px">${r.consent_given ? "✅" : "❌"}</span>
+        <span style="font-size:13px;font-weight:600;color:${r.consent_given ? '#5BAF5E' : '#B0A69C'}">
+          ${r.consent_given ? "Google口コミへの投稿に同意済み" : "口コミ投稿の同意なし"}
+        </span>
+      </div>
+    </div>`;
+}
+
+// ===== イベントハンドラ =====
+function doLogin() {
+  state.email = document.getElementById("login-email").value.trim();
+  state.password = document.getElementById("login-pw").value;
+  if (!state.email) { state.loginError = "メールアドレスを入力してください"; render(); return; }
+  handleLogin();
+}
+
+function setNav(id) { state.activeNav = id; state.selectedResponse = null; state.filterRating = "all"; render(); }
+function setFilter(f) { state.filterRating = f; render(); }
+function viewResponse(id) { state.selectedResponse = state.responses.find(r => r.id === id); state.activeNav = "responses"; render(); }
+function closeDetail() { state.selectedResponse = null; render(); }
+
+// ===== 初期描画 =====
+render();
+</script>
+</body>
+</html>
