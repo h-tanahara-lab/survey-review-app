@@ -6,7 +6,7 @@
 <title>オーナー管理画面</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -525,7 +525,35 @@ function generateQR() {
   const canvas = document.getElementById("qr-canvas");
   if (!canvas || !state.shop) return;
   const url = `https://greview.cvmcms.com/?shop=${state.shop.id}`;
-  QRCode.toCanvas(canvas, url, { width: 200, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } });
+
+  // QRCode ライブラリが使える場合
+  if (typeof QRCode !== "undefined" && QRCode.toCanvas) {
+    QRCode.toCanvas(canvas, url, { width: 200, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, function(err) {
+      if (err) { console.error("QR生成エラー:", err); showQRFallback(url); }
+    });
+  } else {
+    showQRFallback(url);
+  }
+}
+
+// フォールバック: img要素でQRコード表示
+function showQRFallback(url) {
+  const canvas = document.getElementById("qr-canvas");
+  if (!canvas) return;
+  const encoded = encodeURIComponent(url);
+  const imgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
+  const container = canvas.parentElement;
+  canvas.style.display = "none";
+  const existing = document.getElementById("qr-fallback-img");
+  if (existing) existing.remove();
+  const img = document.createElement("img");
+  img.id = "qr-fallback-img";
+  img.src = imgUrl;
+  img.width = 200;
+  img.height = 200;
+  img.style.borderRadius = "12px";
+  img.style.border = "1px solid #E8DDD5";
+  container.insertBefore(img, canvas.nextSibling);
 }
 
 // QRコードダウンロード
@@ -533,24 +561,37 @@ function downloadQR(format) {
   const url = `https://greview.cvmcms.com/?shop=${state.shop.id}`;
   const shopName = state.shop.name.replace(/\s+/g, "_");
 
-  if (format === "png") {
-    QRCode.toDataURL(url, { width: 400, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, (err, dataUrl) => {
-      if (err) return;
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${shopName}_QR.png`;
-      a.click();
-    });
+  if (typeof QRCode !== "undefined" && QRCode.toDataURL) {
+    if (format === "png") {
+      QRCode.toDataURL(url, { width: 400, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, (err, dataUrl) => {
+        if (err) { downloadQRFallback(url, shopName); return; }
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `${shopName}_QR.png`;
+        a.click();
+      });
+    } else {
+      QRCode.toString(url, { type: "svg", width: 400, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, (err, svgStr) => {
+        if (err) { downloadQRFallback(url, shopName); return; }
+        const blob = new Blob([svgStr], { type: "image/svg+xml" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${shopName}_QR.svg`;
+        a.click();
+      });
+    }
   } else {
-    QRCode.toString(url, { type: "svg", width: 400, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, (err, svgStr) => {
-      if (err) return;
-      const blob = new Blob([svgStr], { type: "image/svg+xml" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${shopName}_QR.svg`;
-      a.click();
-    });
+    downloadQRFallback(url, shopName);
   }
+}
+
+function downloadQRFallback(url, shopName) {
+  const encoded = encodeURIComponent(url);
+  const a = document.createElement("a");
+  a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&format=png&data=${encoded}`;
+  a.download = `${shopName}_QR.png`;
+  a.target = "_blank";
+  a.click();
 }
 
 // アンケートURLコピー
