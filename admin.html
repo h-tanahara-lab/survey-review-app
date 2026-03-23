@@ -6,6 +6,7 @@
 <title>オーナー管理画面</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -117,6 +118,14 @@ const SUPABASE_URL = "https://krjgthuwecuwlcfsgjmd.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtyamd0aHV3ZWN1d2xjZnNnam1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDg4ODEsImV4cCI6MjA4OTcyNDg4MX0.aQLzcIzdcRUSNi2vcJttHcSm1AQ6eB03tkFdl7_1zTQ";
 
 const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const INDUSTRY_LABELS = {
+  nail_salon: "ネイルサロン",
+  hair_salon: "美容室",
+  esthetic: "エステサロン",
+  eyelash: "まつエクサロン",
+  relaxation: "リラクゼーション・整体",
+};
 
 // ===== 状態 =====
 const state = {
@@ -254,6 +263,7 @@ function renderDashboard(app) {
   const navItems = [
     { id: "dashboard", label: "ダッシュボード", icon: "📊" },
     { id: "responses", label: "回答一覧", icon: "📋" },
+    { id: "shop", label: "店舗設定", icon: "🏪" },
   ];
 
   const navHTML = navItems.map(n => `
@@ -265,6 +275,7 @@ function renderDashboard(app) {
   if (state.activeNav === "dashboard") mainHTML = renderDashboardContent();
   else if (state.activeNav === "responses" && !state.selectedResponse) mainHTML = renderResponsesList();
   else if (state.activeNav === "responses" && state.selectedResponse) mainHTML = renderResponseDetail();
+  else if (state.activeNav === "shop") mainHTML = renderShopSettings();
 
   app.innerHTML = `
     <div class="header">
@@ -454,6 +465,124 @@ function renderResponseDetail() {
     </div>`;
 }
 
+// ===== 店舗設定画面 =====
+function renderShopSettings() {
+  const shop = state.shop;
+  const surveyUrl = `https://greview.cvmcms.com/?shop=${shop.id}`;
+
+  return `
+    <h2 class="page-title">店舗設定</h2>
+    <p class="page-sub">${shop.name} の設定</p>
+
+    <!-- 店舗情報 -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><span>🏪</span><h3>店舗情報</h3></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#8C8279;display:block;margin-bottom:4px">店舗名</label>
+          <input type="text" id="shop-name" value="${shop.name}" style="width:100%;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#D4847C'" onblur="this.style.borderColor='#E8DDD5'">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#8C8279;display:block;margin-bottom:4px">業種</label>
+          <div style="padding:10px 14px;background:#F7F3EF;border-radius:10px;font-size:14px;color:#3A332D">${INDUSTRY_LABELS[shop.industry_type] || shop.industry_type}</div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#8C8279;display:block;margin-bottom:4px">Google Place ID</label>
+          <input type="text" id="shop-place-id" value="${shop.google_place_id || ''}" placeholder="Google Place IDを入力" style="width:100%;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#D4847C'" onblur="this.style.borderColor='#E8DDD5'">
+          <p style="font-size:11px;color:#B0A69C;margin-top:4px">※ Google口コミページへの遷移に使用します</p>
+        </div>
+        <button onclick="saveShopInfo()" style="padding:12px 24px;border:none;border-radius:10px;background:linear-gradient(135deg,#D4847C,#E8A87C);color:#FFF;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;align-self:flex-start">保存する</button>
+        <div id="shop-save-msg"></div>
+      </div>
+    </div>
+
+    <!-- アンケートURL & QRコード -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><span>📱</span><h3>アンケートURL・QRコード</h3></div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#8C8279;display:block;margin-bottom:4px">アンケートURL</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" readonly value="${surveyUrl}" id="survey-url" style="flex:1;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:12px;font-family:monospace;background:#F7F3EF;outline:none;color:#3A332D">
+          <button onclick="copySurveyUrl()" id="copy-url-btn" style="padding:10px 16px;border:1px solid #E8DDD5;border-radius:10px;background:#FFF;font-size:12px;font-weight:600;color:#D4847C;cursor:pointer;font-family:inherit;white-space:nowrap">コピー</button>
+        </div>
+        <p style="font-size:11px;color:#B0A69C;margin-top:4px">※ このURLをQRコードやLINEリッチメニューに設定してください</p>
+      </div>
+
+      <div style="margin-top:20px;text-align:center">
+        <label style="font-size:12px;font-weight:600;color:#8C8279;display:block;margin-bottom:12px">QRコード</label>
+        <canvas id="qr-canvas" style="border:1px solid #E8DDD5;border-radius:12px"></canvas>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+          <button onclick="downloadQR('png')" style="padding:8px 20px;border:1px solid #E8DDD5;border-radius:8px;background:#FFF;font-size:12px;font-weight:600;color:#1B6B93;cursor:pointer;font-family:inherit">PNG ダウンロード</button>
+          <button onclick="downloadQR('svg')" style="padding:8px 20px;border:1px solid #E8DDD5;border-radius:8px;background:#FFF;font-size:12px;font-weight:600;color:#1B6B93;cursor:pointer;font-family:inherit">SVG ダウンロード</button>
+        </div>
+        <p style="font-size:11px;color:#B0A69C;margin-top:8px">※ 印刷してレジ横やテーブルに設置してください</p>
+      </div>
+    </div>`;
+}
+
+// QRコード生成（ページ遷移後に呼ぶ）
+function generateQR() {
+  const canvas = document.getElementById("qr-canvas");
+  if (!canvas || !state.shop) return;
+  const url = `https://greview.cvmcms.com/?shop=${state.shop.id}`;
+  QRCode.toCanvas(canvas, url, { width: 200, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } });
+}
+
+// QRコードダウンロード
+function downloadQR(format) {
+  const url = `https://greview.cvmcms.com/?shop=${state.shop.id}`;
+  const shopName = state.shop.name.replace(/\s+/g, "_");
+
+  if (format === "png") {
+    QRCode.toDataURL(url, { width: 400, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, (err, dataUrl) => {
+      if (err) return;
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${shopName}_QR.png`;
+      a.click();
+    });
+  } else {
+    QRCode.toString(url, { type: "svg", width: 400, margin: 2, color: { dark: "#3A332D", light: "#FFFFFF" } }, (err, svgStr) => {
+      if (err) return;
+      const blob = new Blob([svgStr], { type: "image/svg+xml" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${shopName}_QR.svg`;
+      a.click();
+    });
+  }
+}
+
+// アンケートURLコピー
+function copySurveyUrl() {
+  const input = document.getElementById("survey-url");
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = document.getElementById("copy-url-btn");
+    btn.textContent = "✓ コピー済";
+    setTimeout(() => { btn.textContent = "コピー"; }, 2000);
+  });
+}
+
+// 店舗情報保存
+async function saveShopInfo() {
+  const name = document.getElementById("shop-name").value.trim();
+  const placeId = document.getElementById("shop-place-id").value.trim();
+  const msgEl = document.getElementById("shop-save-msg");
+
+  if (!name) { msgEl.innerHTML = '<span style="color:#D4847C;font-size:13px">店舗名を入力してください</span>'; return; }
+
+  const { error } = await sbClient.from("shops").update({ name, google_place_id: placeId || null }).eq("id", state.shop.id);
+
+  if (error) {
+    msgEl.innerHTML = '<span style="color:#D4847C;font-size:13px">保存に失敗しました</span>';
+  } else {
+    state.shop.name = name;
+    state.shop.google_place_id = placeId;
+    msgEl.innerHTML = '<span style="color:#38A169;font-size:13px">✓ 保存しました</span>';
+    setTimeout(() => { msgEl.innerHTML = ""; render(); }, 1500);
+  }
+}
+
 // ===== イベントハンドラ =====
 function doLogin() {
   state.email = document.getElementById("login-email").value.trim();
@@ -462,7 +591,7 @@ function doLogin() {
   handleLogin();
 }
 
-function setNav(id) { state.activeNav = id; state.selectedResponse = null; state.filterRating = "all"; render(); }
+function setNav(id) { state.activeNav = id; state.selectedResponse = null; state.filterRating = "all"; render(); if (id === "shop") setTimeout(generateQR, 100); }
 function setFilter(f) { state.filterRating = f; render(); }
 function viewResponse(id) { state.selectedResponse = state.responses.find(r => r.id === id); state.activeNav = "responses"; render(); }
 function closeDetail() { state.selectedResponse = null; render(); }
