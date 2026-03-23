@@ -587,11 +587,21 @@ function downloadQR(format) {
 
 function downloadQRFallback(url, shopName) {
   const encoded = encodeURIComponent(url);
-  const a = document.createElement("a");
-  a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&format=png&data=${encoded}`;
-  a.download = `${shopName}_QR.png`;
-  a.target = "_blank";
-  a.click();
+  const imgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&format=png&data=${encoded}`;
+  fetch(imgUrl)
+    .then(res => res.blob())
+    .then(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${shopName}_QR.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    })
+    .catch(() => {
+      // fetchが失敗した場合は別タブで開く
+      window.open(imgUrl, "_blank");
+    });
 }
 
 // アンケートURLコピー
