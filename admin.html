@@ -133,6 +133,10 @@ const state = {
   user: null,
   shop: null,
   responses: [],
+  staffMembers: [],
+  surveyMenus: [],
+  surveyGoodPoints: [],
+  surveyImprovePoints: [],
   activeNav: "dashboard",
   selectedResponse: null,
   filterRating: "all",
@@ -144,13 +148,39 @@ const state = {
 
 // ===== データ取得 =====
 async function fetchShopData() {
-  // 今はRLSを使わずshop_idで直接取得（認証実装後にRLSベースに移行）
   const { data: shops } = await sbClient.from("shops").select("*").eq("owner_email", state.email).eq("status", "use");
   if (!shops || shops.length === 0) return null;
   state.shop = shops[0];
 
   const { data: responses } = await sbClient.from("responses").select("*").eq("shop_id", state.shop.id).order("created_at", { ascending: false });
   state.responses = responses || [];
+
+  // スタッフ取得
+  const { data: staff } = await sbClient.from("staff_members").select("*").eq("shop_id", state.shop.id).order("sort_order");
+  state.staffMembers = staff || [];
+
+  // テンプレート取得
+  const { data: templates } = await sbClient.from("survey_templates").select("*").eq("industry_type", state.shop.industry_type);
+  if (templates) {
+    templates.forEach(t => {
+      const opts = typeof t.options === "string" ? JSON.parse(t.options) : t.options;
+      if (t.question_key === "menus") state.surveyMenus = opts;
+      else if (t.question_key === "good_points") state.surveyGoodPoints = opts;
+      else if (t.question_key === "improve_points") state.surveyImprovePoints = opts;
+    });
+  }
+
+  // 店舗別カスタム設定で上書き
+  const { data: custom } = await sbClient.from("survey_settings").select("*").eq("shop_id", state.shop.id);
+  if (custom) {
+    custom.forEach(c => {
+      const opts = typeof c.custom_options === "string" ? JSON.parse(c.custom_options) : c.custom_options;
+      if (c.question_key === "menus") state.surveyMenus = opts;
+      else if (c.question_key === "good_points") state.surveyGoodPoints = opts;
+      else if (c.question_key === "improve_points") state.surveyImprovePoints = opts;
+    });
+  }
+
   return state.shop;
 }
 
@@ -263,6 +293,7 @@ function renderDashboard(app) {
   const navItems = [
     { id: "dashboard", label: "ダッシュボード", icon: "📊" },
     { id: "responses", label: "回答一覧", icon: "📋" },
+    { id: "survey", label: "アンケート設定", icon: "⚙️" },
     { id: "shop", label: "店舗設定", icon: "🏪" },
   ];
 
@@ -276,6 +307,7 @@ function renderDashboard(app) {
   else if (state.activeNav === "responses" && !state.selectedResponse) mainHTML = renderResponsesList();
   else if (state.activeNav === "responses" && state.selectedResponse) mainHTML = renderResponseDetail();
   else if (state.activeNav === "shop") mainHTML = renderShopSettings();
+  else if (state.activeNav === "survey") mainHTML = renderSurveySettings();
 
   app.innerHTML = `
     <div class="header">
@@ -463,6 +495,155 @@ function renderResponseDetail() {
         </span>
       </div>
     </div>`;
+}
+
+// ===== アンケート設定画面 =====
+function renderSurveySettings() {
+  const shop = state.shop;
+
+  return `
+    <h2 class="page-title">アンケート設定</h2>
+    <p class="page-sub">${shop.name} のアンケート内容をカスタマイズ</p>
+
+    <!-- スタッフ管理 -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><span>👩‍💼</span><h3>スタッフ管理（Q4の選択肢）</h3></div>
+      <div id="staff-list">
+        ${state.staffMembers.filter(s => s.is_active).map(s => `
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #F5F0EB">
+            <span style="flex:1;font-size:14px;color:#3A332D">${s.name}</span>
+            <button onclick="removeStaff('${s.id}')" style="background:none;border:1px solid #E8DDD5;border-radius:6px;padding:4px 10px;font-size:11px;color:#D4847C;cursor:pointer;font-family:inherit">削除</button>
+          </div>`).join("")}
+        ${state.staffMembers.filter(s => s.is_active).length === 0 ? '<p style="font-size:13px;color:#B0A69C;padding:8px 0">スタッフが登録されていません</p>' : ""}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input type="text" id="new-staff-name" placeholder="スタッフ名を入力" style="flex:1;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#D4847C'" onblur="this.style.borderColor='#E8DDD5'" onkeydown="if(event.key==='Enter')addStaff()">
+        <button onclick="addStaff()" style="padding:10px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#D4847C,#E8A87C);color:#FFF;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+      </div>
+      <div id="staff-msg" style="margin-top:8px"></div>
+    </div>
+
+    <!-- メニュー設定 -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><span>📋</span><h3>施術メニュー（Q2の選択肢）</h3></div>
+      <div id="menu-list">
+        ${state.surveyMenus.map((m, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F5F0EB">
+            <span style="flex:1;font-size:13px;color:#3A332D">${m}</span>
+            <button onclick="removeMenuItem(${i})" style="background:none;border:1px solid #E8DDD5;border-radius:6px;padding:3px 8px;font-size:11px;color:#D4847C;cursor:pointer;font-family:inherit">×</button>
+          </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input type="text" id="new-menu-item" placeholder="メニュー名を入力" style="flex:1;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#D4847C'" onblur="this.style.borderColor='#E8DDD5'" onkeydown="if(event.key==='Enter')addMenuItem()">
+        <button onclick="addMenuItem()" style="padding:10px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#D4847C,#E8A87C);color:#FFF;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+      </div>
+      <div id="menu-msg" style="margin-top:8px"></div>
+    </div>
+
+    <!-- 良かった点設定 -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><span>👍</span><h3>良かった点（Q3・高評価時の選択肢）</h3></div>
+      <div id="good-list">
+        ${state.surveyGoodPoints.map((g, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F5F0EB">
+            <span style="flex:1;font-size:13px;color:#3A332D">${g}</span>
+            <button onclick="removeGoodPoint(${i})" style="background:none;border:1px solid #E8DDD5;border-radius:6px;padding:3px 8px;font-size:11px;color:#D4847C;cursor:pointer;font-family:inherit">×</button>
+          </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input type="text" id="new-good-point" placeholder="良かった点を入力" style="flex:1;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#D4847C'" onblur="this.style.borderColor='#E8DDD5'" onkeydown="if(event.key==='Enter')addGoodPoint()">
+        <button onclick="addGoodPoint()" style="padding:10px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#D4847C,#E8A87C);color:#FFF;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+      </div>
+      <div id="good-msg" style="margin-top:8px"></div>
+    </div>
+
+    <!-- 改善してほしい点設定 -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title"><span>💡</span><h3>改善してほしい点（Q3・低評価時の選択肢）</h3></div>
+      <div id="improve-list">
+        ${state.surveyImprovePoints.map((p, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F5F0EB">
+            <span style="flex:1;font-size:13px;color:#3A332D">${p}</span>
+            <button onclick="removeImprovePoint(${i})" style="background:none;border:1px solid #E8DDD5;border-radius:6px;padding:3px 8px;font-size:11px;color:#D4847C;cursor:pointer;font-family:inherit">×</button>
+          </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input type="text" id="new-improve-point" placeholder="改善してほしい点を入力" style="flex:1;padding:10px 14px;border:2px solid #E8DDD5;border-radius:10px;font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#D4847C'" onblur="this.style.borderColor='#E8DDD5'" onkeydown="if(event.key==='Enter')addImprovePoint()">
+        <button onclick="addImprovePoint()" style="padding:10px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#D4847C,#E8A87C);color:#FFF;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+      </div>
+      <div id="improve-msg" style="margin-top:8px"></div>
+    </div>`;
+}
+
+// スタッフ追加
+async function addStaff() {
+  const input = document.getElementById("new-staff-name");
+  const name = input.value.trim();
+  if (!name) return;
+  const { error } = await sbClient.from("staff_members").insert([{ shop_id: state.shop.id, name, is_active: true, sort_order: state.staffMembers.length }]);
+  if (error) { document.getElementById("staff-msg").innerHTML = '<span style="color:#D4847C;font-size:12px">追加に失敗しました</span>'; return; }
+  input.value = "";
+  await refreshSurveyData();
+  render();
+}
+
+// スタッフ削除（論理削除）
+async function removeStaff(id) {
+  await sbClient.from("staff_members").update({ is_active: false }).eq("id", id);
+  await refreshSurveyData();
+  render();
+}
+
+// メニュー追加
+async function addMenuItem() {
+  const input = document.getElementById("new-menu-item");
+  const name = input.value.trim();
+  if (!name) return;
+  state.surveyMenus.push(name);
+  await saveSurveySetting("menus", state.surveyMenus);
+  input.value = "";
+  render();
+}
+function removeMenuItem(i) { state.surveyMenus.splice(i, 1); saveSurveySetting("menus", state.surveyMenus); render(); }
+
+// 良かった点追加
+async function addGoodPoint() {
+  const input = document.getElementById("new-good-point");
+  const name = input.value.trim();
+  if (!name) return;
+  state.surveyGoodPoints.push(name);
+  await saveSurveySetting("good_points", state.surveyGoodPoints);
+  input.value = "";
+  render();
+}
+function removeGoodPoint(i) { state.surveyGoodPoints.splice(i, 1); saveSurveySetting("good_points", state.surveyGoodPoints); render(); }
+
+// 改善してほしい点追加
+async function addImprovePoint() {
+  const input = document.getElementById("new-improve-point");
+  const name = input.value.trim();
+  if (!name) return;
+  state.surveyImprovePoints.push(name);
+  await saveSurveySetting("improve_points", state.surveyImprovePoints);
+  input.value = "";
+  render();
+}
+function removeImprovePoint(i) { state.surveyImprovePoints.splice(i, 1); saveSurveySetting("improve_points", state.surveyImprovePoints); render(); }
+
+// survey_settingsにカスタム設定を保存（upsert）
+async function saveSurveySetting(questionKey, options) {
+  const { data: existing } = await sbClient.from("survey_settings").select("id").eq("shop_id", state.shop.id).eq("question_key", questionKey);
+  if (existing && existing.length > 0) {
+    await sbClient.from("survey_settings").update({ custom_options: JSON.stringify(options) }).eq("id", existing[0].id);
+  } else {
+    await sbClient.from("survey_settings").insert([{ shop_id: state.shop.id, question_key: questionKey, custom_options: JSON.stringify(options) }]);
+  }
+}
+
+// スタッフ・テンプレートデータ再取得
+async function refreshSurveyData() {
+  const { data: staff } = await sbClient.from("staff_members").select("*").eq("shop_id", state.shop.id).order("sort_order");
+  state.staffMembers = staff || [];
 }
 
 // ===== 店舗設定画面 =====
