@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Nail Salon Luana - アンケート</title>
+<title>アンケート</title>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -188,20 +188,81 @@ body {
 <script>
 // ===== 設定 =====
 const GAS_URL = "https://script.google.com/macros/s/AKfycbwgDfxZ-hR1w337kdenpoLUbLjiqBr0WvzOHX9DEaQ2hxK0Pz0SElrVHUQpNOE_HQq5/exec";
-const SHOP_NAME = "Nail Salon Luana";
-const SHOP_TYPE = "ネイルサロン";
-const GOOGLE_PLACE_ID = "DEMO_PLACE_ID"; // 実際のPlace IDに置き換える
 
 // ===== Supabase設定 =====
 const SUPABASE_URL = "https://krjgthuwecuwlcfsgjmd.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtyamd0aHV3ZWN1d2xjZnNnam1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDg4ODEsImV4cCI6MjA4OTcyNDg4MX0.aQLzcIzdcRUSNi2vcJttHcSm1AQ6eB03tkFdl7_1zTQ";
-const SHOP_ID = "caa79b24-4018-43a6-832c-a52a6925a93b"; // Nail Salon Luana
+
+// URLパラメータからshop_idを取得
+const urlParams = new URLSearchParams(window.location.search);
+const SHOP_ID = urlParams.get("shop") || null;
 
 let sbClient = null;
 try {
   sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch (e) {
   console.warn("Supabase初期化失敗:", e);
+}
+
+// 店舗情報（Supabaseから動的に取得）
+let SHOP_NAME = "";
+let SHOP_TYPE = "";
+let GOOGLE_PLACE_ID = "";
+let MENUS = [];
+let GOOD_POINTS = [];
+let IMPROVE_POINTS = [];
+let STAFF = [];
+
+// 業種の日本語マッピング
+const INDUSTRY_LABELS = {
+  nail_salon: "ネイルサロン",
+  hair_salon: "美容室",
+  esthetic: "エステサロン",
+  eyelash: "まつエクサロン",
+  relaxation: "リラクゼーション・整体",
+};
+
+// Supabaseから店舗情報・テンプレート・スタッフを取得
+async function loadShopData() {
+  if (!sbClient || !SHOP_ID) return false;
+
+  try {
+    // 店舗情報取得
+    const { data: shops, error: shopErr } = await sbClient.from("shops").select("*").eq("id", SHOP_ID).eq("status", "use");
+    if (shopErr || !shops || shops.length === 0) return false;
+    const shop = shops[0];
+    SHOP_NAME = shop.name;
+    SHOP_TYPE = INDUSTRY_LABELS[shop.industry_type] || shop.industry_type;
+    GOOGLE_PLACE_ID = shop.google_place_id || "";
+
+    // 店舗別カスタム設定があるか確認
+    const { data: custom } = await sbClient.from("survey_settings").select("*").eq("shop_id", SHOP_ID);
+    const customMap = {};
+    if (custom) custom.forEach(c => { customMap[c.question_key] = c.custom_options; });
+
+    // 業種テンプレート取得
+    const { data: templates } = await sbClient.from("survey_templates").select("*").eq("industry_type", shop.industry_type);
+    if (templates) {
+      templates.forEach(t => {
+        const opts = customMap[t.question_key] || t.options;
+        const parsed = typeof opts === "string" ? JSON.parse(opts) : opts;
+        if (t.question_key === "menus") MENUS = parsed;
+        else if (t.question_key === "good_points") GOOD_POINTS = parsed;
+        else if (t.question_key === "improve_points") IMPROVE_POINTS = parsed;
+      });
+    }
+
+    // スタッフ取得
+    const { data: staffData } = await sbClient.from("staff_members").select("*").eq("shop_id", SHOP_ID).eq("is_active", true).order("sort_order");
+    if (staffData && staffData.length > 0) {
+      STAFF = staffData.map(s => s.name);
+    }
+
+    return true;
+  } catch (e) {
+    console.error("店舗データ取得エラー:", e);
+    return false;
+  }
 }
 
 // Supabaseにアンケート回答を保存
@@ -231,20 +292,6 @@ async function saveToSupabase(reviewData) {
     console.error("Supabase保存例外:", e);
   }
 }
-
-const MENUS = ["ジェルネイル", "スカルプ", "ケア・甘皮処理", "フットネイル", "ネイルオフ", "アート・パーツ"];
-
-const GOOD_POINTS = [
-  "デザインが可愛い・おしゃれ", "仕上がりが丁寧", "持ちが良さそう",
-  "カウンセリングが的確", "スタッフの対応が丁寧", "店内が清潔で居心地が良い", "リラックスできた"
-];
-
-const IMPROVE_POINTS = [
-  "仕上がりがイメージと違った", "待ち時間が長かった", "説明が不十分だった",
-  "店内の清潔さが気になった", "料金が高く感じた", "予約が取りにくい", "スタッフの対応が気になった"
-];
-
-const STAFF = ["Miki", "Rina", "Yui", "Haruka"];
 
 // ===== 状態管理 =====
 const state = {
@@ -390,12 +437,21 @@ function renderSurveyScreen(app) {
   }
 
   if (s.step === 3) {
-    const allStaff = [...STAFF, "覚えていない"];
-    stepHTML = `
-      <p class="q-title">担当スタッフの名前<br><span class="q-optional">（任意）</span></p>
-      <div class="chips">
-        ${allStaff.map(name => `<button class="chip ${s.staffName === name ? 'active' : ''}" onclick="setStaff('${name}')">${name}</button>`).join("")}
-      </div>`;
+    if (STAFF.length > 0) {
+      const allStaff = [...STAFF, "覚えていない"];
+      stepHTML = `
+        <p class="q-title">担当スタッフの名前<br><span class="q-optional">（任意）</span></p>
+        <div class="chips">
+          ${allStaff.map(name => `<button class="chip ${s.staffName === name ? 'active' : ''}" onclick="setStaff('${name}')">${name}</button>`).join("")}
+        </div>`;
+    } else {
+      stepHTML = `
+        <p class="q-title">担当スタッフの名前<br><span class="q-optional">（任意）</span></p>
+        <div class="chips">
+          <button class="chip ${s.staffName === '覚えていない' ? 'active' : ''}" onclick="setStaff('覚えていない')">覚えていない</button>
+        </div>
+        <p style="text-align:center;margin-top:12px;font-size:12px;color:#B0A69C">スキップしてもOKです</p>`;
+    }
   }
 
   if (s.step === 4) {
@@ -417,7 +473,7 @@ function renderSurveyScreen(app) {
 
   app.innerHTML = `
     <div class="header">
-      <div class="header-sub">NAIL SALON</div>
+      <div class="header-sub">${SHOP_TYPE}</div>
       <div class="header-name">${SHOP_NAME}</div>
       <div class="header-msg">本日のご来店ありがとうございます</div>
     </div>
@@ -628,8 +684,47 @@ function animateDots() {
   }, 400);
 }
 
-// ===== 初期描画 =====
-render();
+// ===== 初期化 =====
+async function init() {
+  if (!SHOP_ID) {
+    document.getElementById("app").innerHTML = `
+      <div class="loading-screen">
+        <div>
+          <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+          <p style="font-size:18px;font-weight:700;color:#4A3F35;margin-bottom:8px">店舗が指定されていません</p>
+          <p style="font-size:14px;color:#A08E7F">URLにshopパラメータを追加してください</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ローディング表示
+  document.getElementById("app").innerHTML = `
+    <div class="loading-screen">
+      <div>
+        <div class="loading-circle">💅</div>
+        <p style="font-size:16px;color:#4A3F35">読み込み中...</p>
+      </div>
+    </div>`;
+
+  const loaded = await loadShopData();
+  if (!loaded) {
+    document.getElementById("app").innerHTML = `
+      <div class="loading-screen">
+        <div>
+          <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+          <p style="font-size:18px;font-weight:700;color:#4A3F35;margin-bottom:8px">店舗が見つかりません</p>
+          <p style="font-size:14px;color:#A08E7F">URLを確認してください</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  render();
+  document.title = SHOP_NAME + " - アンケート";
+}
+
+init();
 </script>
 </body>
 </html>
