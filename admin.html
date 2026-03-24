@@ -125,6 +125,16 @@ const INDUSTRY_LABELS = {
   esthetic: "エステサロン",
   eyelash: "まつエクサロン",
   relaxation: "リラクゼーション・整体",
+  restaurant: "飲食店",
+  hotel: "ホテル・宿泊施設",
+  clinic: "クリニック・治療院",
+  other: "その他",
+};
+
+const MENU_LABELS = {
+  nail_salon: "施術メニュー", hair_salon: "施術メニュー", esthetic: "施術メニュー",
+  eyelash: "施術メニュー", relaxation: "施術メニュー",
+  restaurant: "お品書き", hotel: "お部屋タイプ", clinic: "施術・診療メニュー", other: "サービス内容",
 };
 
 // ===== 状態 =====
@@ -525,7 +535,7 @@ function renderSurveySettings() {
 
     <!-- メニュー設定 -->
     <div class="card" style="margin-bottom:16px">
-      <div class="section-title"><span>📋</span><h3>施術メニュー（Q2の選択肢）</h3></div>
+      <div class="section-title"><span>📋</span><h3>${MENU_LABELS[shop.industry_type] || "サービス内容"}（Q2の選択肢）</h3></div>
       <div id="menu-list">
         ${state.surveyMenus.map((m, i) => `
           <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F5F0EB">
