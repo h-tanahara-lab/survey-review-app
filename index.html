@@ -207,6 +207,7 @@ try {
 // 店舗情報（Supabaseから動的に取得）
 let SHOP_NAME = "";
 let SHOP_TYPE = "";
+let SHOP_INDUSTRY = "";
 let GOOGLE_PLACE_ID = "";
 let MENUS = [];
 let GOOD_POINTS = [];
@@ -220,6 +221,23 @@ const INDUSTRY_LABELS = {
   esthetic: "エステサロン",
   eyelash: "まつエクサロン",
   relaxation: "リラクゼーション・整体",
+  restaurant: "飲食店",
+  hotel: "ホテル・宿泊施設",
+  clinic: "クリニック・治療院",
+  other: "その他",
+};
+
+// 業種別Q2質問文
+const Q2_LABELS = {
+  nail_salon: "本日の施術メニューを\n選んでください（複数可）",
+  hair_salon: "本日の施術メニューを\n選んでください（複数可）",
+  esthetic: "本日の施術メニューを\n選んでください（複数可）",
+  eyelash: "本日の施術メニューを\n選んでください（複数可）",
+  relaxation: "本日の施術メニューを\n選んでください（複数可）",
+  restaurant: "本日ご注文されたお品を\nお選びください（複数可）",
+  hotel: "お部屋タイプやご利用プランを\nお選びください（複数可）",
+  clinic: "本日の施術・診療内容を\n選んでください（複数可）",
+  other: "本日のサービス内容を\n選んでください（複数可）",
 };
 
 // Supabaseから店舗情報・テンプレート・スタッフを取得
@@ -233,6 +251,7 @@ async function loadShopData() {
     const shop = shops[0];
     SHOP_NAME = shop.name;
     SHOP_TYPE = INDUSTRY_LABELS[shop.industry_type] || shop.industry_type;
+    SHOP_INDUSTRY = shop.industry_type;
     GOOGLE_PLACE_ID = shop.google_place_id || "";
 
     // 店舗別カスタム設定があるか確認
@@ -410,7 +429,7 @@ function renderSurveyScreen(app) {
   if (s.step === 0) {
     const msgs = { 5: "最高！ありがとうございます ✨", 4: "ありがとうございます！", 3: "ご回答ありがとうございます", 2: "貴重なご意見ありがとうございます", 1: "貴重なご意見ありがとうございます" };
     stepHTML = `
-      <p class="q-title">本日の施術の満足度を<br>教えてください</p>
+      <p class="q-title">本日のご利用の満足度を<br>教えてください</p>
       <div class="stars">
         ${[1,2,3,4,5].map(i => `<button class="star ${s.rating >= i ? 'active' : ''}" onclick="setRating(${i})">★</button>`).join("")}
       </div>
@@ -419,7 +438,7 @@ function renderSurveyScreen(app) {
 
   if (s.step === 1) {
     stepHTML = `
-      <p class="q-title">本日の施術メニューを<br>選んでください（複数可）</p>
+      <p class="q-title">${(Q2_LABELS[SHOP_INDUSTRY] || Q2_LABELS.other).replace('\n', '<br>')}</p>
       <div class="chips">
         ${MENUS.map(m => `<button class="chip ${s.menus.includes(m) ? 'active' : ''}" onclick="toggleMenu('${m}')">${m}</button>`).join("")}
       </div>`;
