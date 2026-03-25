@@ -599,7 +599,12 @@ async function addStaff() {
 
 // スタッフ削除（論理削除）
 async function removeStaff(id) {
-  await sbClient.from("staff_members").update({ is_active: false }).eq("id", id);
+  const { error } = await sbClient.from("staff_members").update({ is_active: false }).eq("id", id);
+  if (error) {
+    console.error("スタッフ削除エラー:", error);
+    alert("削除に失敗しました: " + error.message);
+    return;
+  }
   await refreshSurveyData();
   render();
 }
